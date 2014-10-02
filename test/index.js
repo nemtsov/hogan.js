@@ -354,6 +354,22 @@ test("Escaping", function() {
   }
 });
 
+test("Escaping \\u2028", function() {
+  var text = "{{foo}}\u2028{{bar}}";
+  var t = Hogan.compile(text);
+  var s = t.render({foo: 'foo', bar: 'bar'});
+
+  is(s, "foo\u2028bar", "\\u2028 improperly escaped");
+});
+
+test("Escaping \\u2029", function() {
+  var text = "{{foo}}\u2029{{bar}}";
+  var t = Hogan.compile(text);
+  var s = t.render({foo: 'foo', bar: 'bar'});
+
+  is(s, "foo\u2029bar", "\\u2029 improperly escaped");
+});
+
 test("Mustache Injection", function() {
   var text = "{{foo}}";
   var t = Hogan.compile(text);
@@ -483,6 +499,36 @@ test("Undefined Return Value From Lambda", function() {
   is(s, "abcdef", "deal with undefined return values from lambdas.")
 });
 
+test("Sections with null values are treated as key hits", function() {
+  var text = "{{#obj}}{{#sub}}{{^test}}ok{{/test}}{{/sub}}{{/obj}}";
+  var t = Hogan.compile(text);
+  var context = {
+    obj: {
+      test: true,
+      sub: {
+        test: null
+      }
+    }
+  }
+  var s = t.render(context);
+  is(s, "ok");
+});
+
+test("Sections with undefined values are treated as key misses", function() {
+  var text = "{{#obj}}{{#sub}}{{#test}}ok{{/test}}{{/sub}}{{/obj}}";
+  var t = Hogan.compile(text);
+  var context = {
+    obj: {
+      test: true,
+      sub: {
+        test: undefined
+      }
+    }
+  }
+  var s = t.render(context);
+  is(s, "ok");
+});
+
 test("Section Extensions", function() {
   var text = "Test {{_//|__foo}}bar{{/foo}}";
   var options = {sectionTags:[{o:'_//|__foo', c:'foo'}]};
@@ -517,6 +563,25 @@ test("Section Extensions In Higher Order Sections", function() {
   }
   var s = t.render(context);
   is(s, "Testbarqux", "unprocessed test");
+});
+
+test("Section Extension With Higher Order Sections Access Outer Context ", function() {
+  var text = "{{#inner}}{{#extension}}{{outerValue}}{{/extension}}{{/inner}}"
+  var t = Hogan.compile(text);
+  var context = {
+    outerValue: "Outer value",
+    inner: {
+      innerValue: "Inner value"
+    },
+    extension: function () {
+      return function (tmpl, ctx) {
+        var key = /{{(.*)}}/.exec(tmpl)[1];
+        return ctx[0][key];
+      }
+    }
+  };
+  var s = t.render(context);
+  is(s, "Outer value", "unprocessed test");
 });
 
 test("Section Extensions In Lambda Replace Variable", function() {

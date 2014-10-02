@@ -1,4 +1,4 @@
-/*
+/*!
  *  Copyright 2011 Twitter, Inc.
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -12,6 +12,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+// A wrapper for compatibility with Mustache.js, quirks and all
+
+
 
 var Hogan = {};
 
@@ -146,7 +150,7 @@ var Hogan = {};
       } else {
         for (var i = 1; i < names.length; i++) {
           found = findInScope(names[i], val, doModelGet);
-          if (found !== undefined) {
+          if (found != null) {
             cx = val;
             val = found;
           } else {
@@ -178,7 +182,7 @@ var Hogan = {};
       for (var i = ctx.length - 1; i >= 0; i--) {
         v = ctx[i];
         val = findInScope(key, v, doModelGet);
-        if (val !== undefined) {
+        if (val != null) {
           found = true;
           break;
         }
@@ -196,11 +200,11 @@ var Hogan = {};
     },
 
     // higher order templates
-    ls: function(func, cx, ctx, partials, text, tags) {
+    ls: function(func, cx, partials, text, tags) {
       var oldTags = this.options.delimiters;
 
       this.options.delimiters = tags;
-      this.b(this.ct(coerceToString(func.call(cx, text, ctx)), cx, partials));
+      this.b(this.ct(coerceToString(func.call(cx, text)), cx, partials));
       this.options.delimiters = oldTags;
 
       return false;
@@ -230,7 +234,7 @@ var Hogan = {};
           return true;
         } else {
           textSource = (this.activeSub && this.subsText && this.subsText[this.activeSub]) ? this.subsText[this.activeSub] : this.text;
-          return this.ls(result, cx, ctx, partials, textSource.substring(start, end), tags);
+          return this.ls(result, cx, partials, textSource.substring(start, end), tags);
         }
       }
 
@@ -262,11 +266,11 @@ var Hogan = {};
 
   //Find a key in an object
   function findInScope(key, scope, doModelGet) {
-    var val;
+    var val, checkVal;
 
     if (scope && typeof scope == 'object') {
 
-      if (scope[key] !== undefined) {
+      if (scope[key] != null) {
         val = scope[key];
 
       // try lookup with get for backbone or similar model data
@@ -339,3 +343,50 @@ var Hogan = {};
   };
 
 })(typeof exports !== 'undefined' ? exports : Hogan);
+
+
+
+var Mustache = (function (Hogan) {
+
+  // Mustache.js has non-spec partial context behavior
+  function mustachePartial(name, context, partials, indent) {
+    var partialScope = this.f(name, context, partials, 0);
+    var cx = context;
+    if (partialScope) {
+      cx = cx.concat(partialScope);
+    }
+
+    return Hogan.Template.prototype.rp.call(this, name, cx, partials, indent);
+  }
+
+  var HoganTemplateWrapper = function(renderFunc, text, compiler){
+    this.rp = mustachePartial;
+    Hogan.Template.call(this, renderFunc, text, compiler);
+  };
+  HoganTemplateWrapper.prototype = Hogan.Template.prototype;
+
+  // Add a wrapper for Hogan's generate method. Mustache and Hogan keep
+  // separate caches, and Mustache returns wrapped templates.
+  var wrapper;
+  var HoganWrapper = function(){
+    this.cache = {};
+    this.generate = function(code, text, options) {
+      return new HoganTemplateWrapper(new Function('c', 'p', 'i', code), text, wrapper);
+    }
+  };
+  HoganWrapper.prototype = Hogan;
+  wrapper = new HoganWrapper();
+
+  return {
+    to_html: function(text, data, partials, sendFun) {
+      var template = wrapper.compile(text);
+      var result = template.render(data, partials);
+      if (!sendFun) {
+        return result;
+      }
+
+      sendFun(result);
+    }
+  }
+
+})(Hogan);
