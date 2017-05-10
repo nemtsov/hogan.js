@@ -981,6 +981,27 @@ test('Lambdas in two partials with same subs names work', function() {
   );
 });
 
+test('Lambdas in three partials with same subs names work', function() {
+  is(
+    Hogan
+    .compile('{{>a}}' +
+             '{{<b}} {{$s}}{{#l}}z{{/l}}{{/s}} {{/b}}' +
+             '{{>a}}')
+    .render({
+      l() {
+        return function(text) {
+          return text.toUpperCase();
+        }
+      }
+    }, {
+      a: Hogan.compile('{{<b}} {{$s}}{{#l}}a{{/l}}{{/s}} {{/b}}'),
+      b: Hogan.compile('{{$s}}{{/s}}')
+    }),
+    'AZA',
+    'lambda must be called with the correct text'
+  );
+});
+
 test("Cache contains old partials instances", function() {
   var tests = [{
     template: "{{<parent}}{{$a}}c{{/a}}{{/parent}}",
