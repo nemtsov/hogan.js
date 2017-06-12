@@ -1,7 +1,7 @@
 {
   "name": "@behance/hogan.js",
   "description": "A mustache compiler.",
-  "version": "3.0.9",
+  "version": "3.0.10",
   "keywords": [
     "mustache",
     "template"
